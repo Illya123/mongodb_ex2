@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="MongoConfiguration">
+    <option name="serverConfigurations">
+      <list>
+        <ServerConfiguration>
+          <option name="authenticationDatabase" value="infsys" />
+          <option name="authenticationMechanism" value="SCRAM-SHA-1" />
+          <option name="label" value="mongo server" />
+          <option name="password" value="asdf123" />
+          <option name="serverUrls">
+            <list>
+              <option value="141.28.68.212:27017" />
+            </list>
+          </option>
+          <option name="sshTunnelingConfiguration">
+            <SshTunnelingConfiguration />
+          </option>
+          <option name="userDatabase" value="infsys" />
+          <option name="username" value="mongoUser" />
+        </ServerConfiguration>
+      </list>
+    </option>
+  </component>
+</project>
