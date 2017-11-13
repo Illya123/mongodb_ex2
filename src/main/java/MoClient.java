@@ -3,15 +3,12 @@ import com.mongodb.MongoClient;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.AggregateIterable;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import org.bson.BasicBSONObject;
 import org.bson.Document;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.time.*;
 import java.util.*;
 
 /**
@@ -26,7 +23,7 @@ public class MoClient
     private String colName = "words";
 
     private MongoCredential credential = MongoCredential.createCredential(user, database, password);
-    private ServerAddress serverAddress = new ServerAddress("141.28.68.212", 27017);
+    private ServerAddress serverAddress = new ServerAddress("192.168.178.37", 27017);
     private MongoClient client = new MongoClient( serverAddress, Collections.singletonList(credential));
 
     private MongoDatabase db = client.getDatabase("infsys");
@@ -97,8 +94,8 @@ public class MoClient
 
         basicBSONs.add(new Document("$match", new Document("name", word)));
         basicBSONs.add(new Document("$unwind", "$values"));
-        basicBSONs.add(new Document("$match", new Document("values.ts", new Document("$gte", from)
-                                .append("$lte", to))));
+        basicBSONs.add(new Document("$match", new Document("values.ts", new Document("$lte", to)
+                                .append("$gte", from))));
 
         basicBSONs.add(new Document("$group", new Document("_id", null)
                                 .append("values", new Document("$push", new Document("freq", "$values.freq")
