@@ -4,11 +4,14 @@ import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.MongoDatabase;
+import org.apache.commons.lang.time.DateUtils;
 import org.bson.Document;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
@@ -23,7 +26,7 @@ public class MoClient
     private String colName = "words";
 
     private MongoCredential credential = MongoCredential.createCredential(user, database, password);
-    private ServerAddress serverAddress = new ServerAddress("192.168.178.37", 27017);
+    private ServerAddress serverAddress = new ServerAddress("141.28.68.212", 27017);
     private MongoClient client = new MongoClient( serverAddress, Collections.singletonList(credential));
 
     private MongoDatabase db = client.getDatabase("infsys");
@@ -51,14 +54,23 @@ public class MoClient
             for (String line : Files.readAllLines(Paths.get("./words.txt")))
             {
                 Word currentWord = new Word(line);
+
                 if(!doc.containsKey(currentWord.getWord()))
                 {
                     doc.put(currentWord.getWord(), new ArrayList<>());
                 }
-                Document subDoc = new Document()
-                        .append("ts", new Date(currentWord.getTimestamp()))
-                        .append("freq", currentWord.getFrequency());
-                doc.get(currentWord.getWord()).add(subDoc);
+
+              // Date tsToDay = DateUtils.truncate(new Date((long)currentWord.getTimestamp()), Calendar.DATE);
+              //   Date tsToDay = new Date(Instant.ofEpochSecond(currentWord.getTimestamp()).truncatedTo(ChronoUnit.DAYS).toEpochMilli());
+                Date tsToDay = new Date (toDay(Objects.toString(currentWord.getTimestamp())));
+                if (!removeDups(doc.get(currentWord.getWord()), tsToDay, currentWord.getFrequency(), currentWord.getWord()))
+                {
+                    Document subDoc = new Document()
+                            .append("ts", tsToDay)
+                            .append("freq", currentWord.getFrequency());
+                    doc.get(currentWord.getWord()).add(subDoc);
+                }
+
             }
 
             for( String key : doc.keySet()){
@@ -104,5 +116,33 @@ public class MoClient
                                 .append("_id", false)));
 
         return basicBSONs;
+    }
+
+    private boolean removeDups(List<Document> docsWithDups, Date timestamp, int freq, String word){
+
+        for (Document d : docsWithDups){
+            //System.out.println(word);
+            Object o = d.get("ts");
+            if((o instanceof Integer)){
+                System.out.println(word + ": " + o.toString());
+                continue;
+            }
+            Date date = d.getDate("ts");
+            if((date.compareTo(timestamp)) == 0){
+                int newFreq = freq + d.getInteger("freq");
+                d.put("ts", newFreq);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static long toDay(String timestamp) {
+
+        StringBuilder timestampBuilder = new StringBuilder(timestamp);
+        while (timestampBuilder.length() < 13) timestampBuilder.append("0");
+        timestamp = timestampBuilder.toString();
+        long ts = Long.parseLong(timestamp);
+        return ts - ts % 86400000;
     }
 }

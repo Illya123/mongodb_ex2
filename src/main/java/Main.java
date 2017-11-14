@@ -47,7 +47,7 @@ public class Main
 
         // Calculate the word frequency by adding all frequencies
         wordFreq = calcWordFreq(queriedData);
-        printFreq(searchWord, wordFreq, from, to);
+        printFreq(searchWord, wordFreq, from, to, queriedData.size());
     }
 
 
@@ -66,10 +66,11 @@ public class Main
         return wordSum;
     }
 
-    public static void printFreq(String searchedWord, int freq, Date from, Date to){
+    public static void printFreq(String searchedWord, int freq, Date from, Date to, int length){
         DateFormat gerFormat = new SimpleDateFormat( "dd.MM.yy hh:mm:ss");
 
         System.out.println("In the Inverval: " + gerFormat.format(from) + "-" + gerFormat.format(to) + ", " +
                 "\""+searchedWord +"\"" + " appeared " + freq + " times");
+        System.out.println("age without freq is : " + length);
     }
 }

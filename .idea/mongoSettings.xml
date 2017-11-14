@@ -10,7 +10,7 @@
           <option name="password" value="asdf123" />
           <option name="serverUrls">
             <list>
-              <option value="192.168.178.37:27017" />
+              <option value="141.28.68.212.:27017" />
             </list>
           </option>
           <option name="sshTunnelingConfiguration">
