@@ -33,7 +33,7 @@ public class Main
         mongoClient.getDb().drop();
 
         long startTimeIns = System.nanoTime();
-        mongoClient.insertData();
+        mongoClient.insertDataInsertMany();
         long endTimeIns = System.nanoTime();
 
         System.out.println("The query needed " + ((endTimeIns - startTimeIns)/1000000) + " ms");

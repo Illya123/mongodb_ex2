@@ -6,11 +6,11 @@
         <ServerConfiguration>
           <option name="authenticationDatabase" value="infsys" />
           <option name="authenticationMechanism" value="SCRAM-SHA-1" />
-          <option name="label" value="mongo server" />
+          <option name="label" value="mongo server(141.28.68.212)" />
           <option name="password" value="asdf123" />
           <option name="serverUrls">
             <list>
-              <option value="141.28.68.212.:27017" />
+              <option value="192.168.0.53:27017" />
             </list>
           </option>
           <option name="sshTunnelingConfiguration">

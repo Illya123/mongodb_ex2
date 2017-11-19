@@ -1,17 +1,16 @@
-import com.mongodb.Mongo;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.MongoDatabase;
-import org.apache.commons.lang.time.DateUtils;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
 import org.bson.Document;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
@@ -31,11 +30,11 @@ public class MoClient
 
     private MongoDatabase db = client.getDatabase("infsys");
 
-    public MoClient()
+    MoClient()
     {
 
     }
-    public MongoDatabase getDb()
+    MongoDatabase getDb()
     {
         return db;
     }
@@ -45,7 +44,7 @@ public class MoClient
         this.db = db;
     }
 
-    public void insertData(){
+    void insertDataInsertMany(){
         try
         {
             HashMap<String, List<Document>> doc = new HashMap<>();
@@ -87,7 +86,28 @@ public class MoClient
         }
     }
 
-    public Map<Date,Integer> query(String word, Date from, Date to){
+    public void insertDataBulkWrite()
+    {
+        try
+        {
+            HashMap<String, List<Document>> words = new HashMap<>();
+            ArrayList<WriteModel<Document>> docs = new ArrayList<>();
+
+            for (String line : Files.readAllLines(Paths.get("./words.txt")))
+            {
+                Word currentWord = new Word(line);
+                docs.add(this.updateWord(currentWord.getWord()));
+                docs.add(this.updateTime(currentWord.getWord(), new Date(currentWord.getTimestamp()), currentWord.getFrequency()));
+            }
+            this.getDb().getCollection(this.colName).bulkWrite(docs);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    Map<Date,Integer> query(String word, Date from, Date to){
         HashMap<Date, Integer> queriedData = new HashMap<>();
         AggregateIterable<Document> agrIt = this.db.getCollection(this.colName)
                                                 .aggregate(this.aggregate(word, from, to));
@@ -95,7 +115,7 @@ public class MoClient
         {
             for (Document d : (ArrayList<Document>) doc.get("values"))
             {
-                queriedData.put((Date) d.get("ts"), (int) d.get("freq"));
+                queriedData.put( d.getDate("ts"), d.getInteger("freq"));
             }
         }
         return queriedData;
@@ -112,8 +132,8 @@ public class MoClient
         basicBSONs.add(new Document("$group", new Document("_id", null)
                                 .append("values", new Document("$push", new Document("freq", "$values.freq")
                                 .append("ts", "$values.ts")))));
-        basicBSONs.add(new Document("$project", new Document("values", true)
-                                .append("_id", false)));
+        basicBSONs.add(new Document("$project", new Document("_id", false)
+                                .append("values", true)));
 
         return basicBSONs;
     }
@@ -144,5 +164,27 @@ public class MoClient
         timestamp = timestampBuilder.toString();
         long ts = Long.parseLong(timestamp);
         return ts - ts % 86400000;
+    }
+
+    private UpdateOneModel<Document> updateWord(String word)
+    {
+        UpdateOptions opt =new UpdateOptions().upsert(true);
+        UpdateOneModel<Document> uOM = new UpdateOneModel<>(
+                                        new Document("name", word),
+                                        new Document("$set",
+                                        new Document("name", word)), opt);
+        return  uOM;
+    }
+
+    private UpdateOneModel<Document> updateTime(String word, Date time, int freq)
+    {
+        UpdateOptions opt =new UpdateOptions().upsert(true);
+        UpdateOneModel<Document> uOM = new UpdateOneModel<>(new Document()
+                                        .append("name",word)
+                                        .append("values", new Document("$elemMatch",new Document("ts",time))),
+                                        new Document("$set",new Document("values.0.ts",time))
+                                        .append("$inc",new Document("values.0.freq",freq))
+                                        ,opt);
+        return  uOM;
     }
 }
