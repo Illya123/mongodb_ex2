@@ -2,16 +2,18 @@ import com.mongodb.MongoClient;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.AggregateIterable;
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.UpdateOptions;
-import com.mongodb.client.model.WriteModel;
 import org.bson.Document;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+
+import static com.mongodb.client.model.Filters.eq;
 
 /**
  * Created by illya on 12.11.17.
@@ -25,7 +27,8 @@ public class MoClient
     private String colName = "words";
 
     private MongoCredential credential = MongoCredential.createCredential(user, database, password);
-    private ServerAddress serverAddress = new ServerAddress("141.28.68.212", 27017);
+    //141.28.68.212
+    private ServerAddress serverAddress = new ServerAddress("192.168.1.14", 27017);
     private MongoClient client = new MongoClient( serverAddress, Collections.singletonList(credential));
 
     private MongoDatabase db = client.getDatabase("infsys");
@@ -47,35 +50,33 @@ public class MoClient
     void insertDataInsertMany(){
         try
         {
-            HashMap<String, List<Document>> doc = new HashMap<>();
+            HashMap<String, List<Document>> docsMap = new HashMap<>();
             ArrayList<Document> docs = new ArrayList<>();
 
             for (String line : Files.readAllLines(Paths.get("./words.txt")))
             {
                 Word currentWord = new Word(line);
 
-                if(!doc.containsKey(currentWord.getWord()))
+                if(!docsMap.containsKey(currentWord.getWord()))
                 {
-                    doc.put(currentWord.getWord(), new ArrayList<>());
+                    docsMap.put(currentWord.getWord(), new ArrayList<>());
                 }
 
-              // Date tsToDay = DateUtils.truncate(new Date((long)currentWord.getTimestamp()), Calendar.DATE);
-              //   Date tsToDay = new Date(Instant.ofEpochSecond(currentWord.getTimestamp()).truncatedTo(ChronoUnit.DAYS).toEpochMilli());
-                Date tsToDay = new Date (toDay(Objects.toString(currentWord.getTimestamp())));
-                if (!removeDups(doc.get(currentWord.getWord()), tsToDay, currentWord.getFrequency(), currentWord.getWord()))
+                 Date tsToDay = new Date (toDay(Objects.toString(currentWord.getTimestamp())));
+                if (!removeDups(docsMap.get(currentWord.getWord()), tsToDay, currentWord.getFrequency(), currentWord.getWord()))
                 {
                     Document subDoc = new Document()
                             .append("ts", tsToDay)
                             .append("freq", currentWord.getFrequency());
-                    doc.get(currentWord.getWord()).add(subDoc);
+                    docsMap.get(currentWord.getWord()).add(subDoc);
                 }
 
             }
 
-            for( String key : doc.keySet()){
+            for( String key : docsMap.keySet()){
                 Document document = new Document()
                         .append("name", key)
-                        .append("values", doc.get(key));
+                        .append("values", docsMap.get(key));
                 docs.add(document);
             }
 
@@ -86,22 +87,65 @@ public class MoClient
         }
     }
 
-    public void insertDataBulkWrite()
-    {
+    void insertDataUnefficientAsFuck(){
         try
         {
-            HashMap<String, List<Document>> words = new HashMap<>();
-            ArrayList<WriteModel<Document>> docs = new ArrayList<>();
+            HashMap<String, List<Document>> docsMap = new HashMap<>();
+            ArrayList<Document> docs = new ArrayList<>();
 
-            for (String line : Files.readAllLines(Paths.get("./words.txt")))
+            for (String line : Files.readAllLines(Paths.get("./words_short.txt")))
             {
                 Word currentWord = new Word(line);
-                docs.add(this.updateWord(currentWord.getWord()));
-                docs.add(this.updateTime(currentWord.getWord(), new Date(currentWord.getTimestamp()), currentWord.getFrequency()));
+                MongoCollection<Document> col = this.db.getCollection(this.colName);
+                FindIterable<Document> document = col.find(eq("name", currentWord.getWord()));
+                Document newDocument;
+
+                if (document.first() != null)
+                {
+                    List<Document> tsDocs = (List<Document>) document.first().get("values");
+                    for (Document doc : tsDocs)
+                    {
+                        Date currentTs = doc.getDate("ts");
+                        int currentFreq = doc.getInteger("freq");
+                        List<Document> tsList;
+
+
+                        if(currentTs.compareTo(new Date(currentWord.getTimestamp())) != 0)
+                        {
+                            //CurrentTimestamp does not exist in the DB.
+                            newDocument = new Document("name", currentWord.getWord());
+                            tsList = tsDocs;
+                            newDocument.append("values", tsList);
+
+                            tsList.add(new Document("ts", new Date(currentWord.getTimestamp()))
+                                    .append("freq", currentWord.getFrequency()));
+                        }
+                        else
+                        {
+                            //CurrentTimestamp does exist in the DB.
+                            doc.put("freq", currentFreq + currentWord.getFrequency());
+
+                            newDocument = new Document("name", currentWord.getWord());
+                            tsList = tsDocs;
+                            newDocument.append("values", tsList);
+                        }
+                        col.replaceOne(new Document("name", currentWord.getWord()), newDocument, new UpdateOptions().upsert( true ));
+                        break;
+                    }
+                }
+                else
+                {
+                    //Create Document if it does not exist.
+                    Document doc = new Document("name", currentWord.getWord());
+                    List<Document> tsList = new ArrayList<>();
+                    doc.append("values", tsList);
+
+                    tsList.add(new Document("ts", new Date(currentWord.getTimestamp()))
+                            .append("freq", currentWord.getFrequency()));
+                    col.insertOne(doc);
+                }
             }
-            this.getDb().getCollection(this.colName).bulkWrite(docs);
-        }
-        catch (Exception e)
+        } catch (IOException e)
         {
             e.printStackTrace();
         }
@@ -141,16 +185,10 @@ public class MoClient
     private boolean removeDups(List<Document> docsWithDups, Date timestamp, int freq, String word){
 
         for (Document d : docsWithDups){
-            //System.out.println(word);
-            Object o = d.get("ts");
-            if((o instanceof Integer)){
-                System.out.println(word + ": " + o.toString());
-                continue;
-            }
             Date date = d.getDate("ts");
             if((date.compareTo(timestamp)) == 0){
                 int newFreq = freq + d.getInteger("freq");
-                d.put("ts", newFreq);
+                d.put("freq", newFreq);
                 return true;
             }
         }
@@ -164,27 +202,5 @@ public class MoClient
         timestamp = timestampBuilder.toString();
         long ts = Long.parseLong(timestamp);
         return ts - ts % 86400000;
-    }
-
-    private UpdateOneModel<Document> updateWord(String word)
-    {
-        UpdateOptions opt =new UpdateOptions().upsert(true);
-        UpdateOneModel<Document> uOM = new UpdateOneModel<>(
-                                        new Document("name", word),
-                                        new Document("$set",
-                                        new Document("name", word)), opt);
-        return  uOM;
-    }
-
-    private UpdateOneModel<Document> updateTime(String word, Date time, int freq)
-    {
-        UpdateOptions opt =new UpdateOptions().upsert(true);
-        UpdateOneModel<Document> uOM = new UpdateOneModel<>(new Document()
-                                        .append("name",word)
-                                        .append("values", new Document("$elemMatch",new Document("ts",time))),
-                                        new Document("$set",new Document("values.0.ts",time))
-                                        .append("$inc",new Document("values.0.freq",freq))
-                                        ,opt);
-        return  uOM;
     }
 }

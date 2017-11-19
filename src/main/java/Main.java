@@ -33,7 +33,10 @@ public class Main
         mongoClient.getDb().drop();
 
         long startTimeIns = System.nanoTime();
+        //exercise3
         mongoClient.insertDataInsertMany();
+        //exercise2
+       // mongoClient.insertDataUnefficientAsFuck();
         long endTimeIns = System.nanoTime();
 
         System.out.println("The query needed " + ((endTimeIns - startTimeIns)/1000000) + " ms");
@@ -46,8 +49,7 @@ public class Main
         System.out.println("The query needed " + ((endTimeQ - startTimeQ)/1000000) + " ms");
 
         // Calculate the word frequency by adding all frequencies
-        wordFreq = calcWordFreq(queriedData);
-        printFreq(searchWord, wordFreq, from, to, queriedData.size());
+        printFreq(searchWord, calcWordFreq(queriedData), from, to, queriedData.size());
     }
 
 
@@ -69,8 +71,7 @@ public class Main
     public static void printFreq(String searchedWord, int freq, Date from, Date to, int length){
         DateFormat gerFormat = new SimpleDateFormat( "dd.MM.yy hh:mm:ss");
 
-        System.out.println("In the Inverval: " + gerFormat.format(from) + "-" + gerFormat.format(to) + ", " +
-                "\""+searchedWord +"\"" + " appeared " + freq + " times");
-        System.out.println("age without freq is : " + length);
+        System.out.println("In the Inverval: " + gerFormat.format(from) + " - " + gerFormat.format(to) + ", " +
+                "\""+searchedWord +"\"" + " appeared " + length + " times and its frequency is " + freq);
     }
 }
